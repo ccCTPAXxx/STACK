@@ -21,6 +21,13 @@
 #endif
 
 
+#define CHECK(STACK) {																\
+	char reason[LOGGER] = {};														\
+	errno_t check = _check_if_OK_(__FILE__, __LINE__, __func__, STACK, reason);		\
+	if (check) return check; 														\
+} 
+
+
 typedef long long int lli;
 
 #ifdef KANARY_MODE
@@ -79,14 +86,15 @@ static void dump_stack(size_t line, const char* fnc, const char* file, StackCons
 	#endif
 	
 	#ifdef KANARY_MODE
-	if (is_heap_pointer(STACK))
+	if (STACK -> hardware_stack != NULL) 
 	fprintf(logs, "\t%s: left_canary -> %lf (etalon = %lf)\n", STACK -> name, ((double*) STACK -> hardware_stack)[0], KANARY);
-	else fprintf(logs, "Cannot find canary, stack is broken... ugh...\n");
+	else fprintf(logs, "Cannot find left canary, stack is broken... ugh...\n");
 	#endif
-	if (is_heap_pointer(STACK)) {
+	
+	if (STACK -> stack != NULL || 1) {
 		fprintf(logs, "\t%s -> stack [adr: %p] {\n", STACK -> name, STACK -> stack);
 		for (int i = 0; i < STACK -> size; i++) {
-			fprintf(logs, "\t\t[%d] : < %d >\n", i, STACK -> stack[i]);
+			fprintf(logs, "\t\t[%d] : < %lf >\n", i, STACK -> stack[i]);
 		}
 		fprintf(logs, "\t}\n");
 	} else {
@@ -94,7 +102,7 @@ static void dump_stack(size_t line, const char* fnc, const char* file, StackCons
 	}
 	
 	#ifdef KANARY_MODE
-	if (is_heap_pointer(STACK))
+	if (STACK -> hardware_stack != NULL)
 	fprintf(logs, "\t%s: righ_canary -> %lf (etalon = %lf)\n", STACK -> name, *((double*)((char*)(STACK -> stack) + STACK -> capacity * sizeof(StackValue))), KANARY);
 	else fprintf(logs, "Cannot find right canary, stack is broken... ugh...\n");
 	#endif
@@ -105,14 +113,17 @@ static void dump_stack(size_t line, const char* fnc, const char* file, StackCons
 	#endif
 }
 
-static errno_t _check_if_OK_(const char* fname, size_t line, const char* fxname, StackConstructor* STACK, const char* reason) {
+static ERRORS _check_if_OK_(const char* fname, size_t line, const char* fxname, StackConstructor* STACK, const char* reason) {
 	assert(fname != NULL); assert(fxname != NULL); assert(STACK != NULL); assert(reason != NULL);
 	
 	#ifdef DEBUG_MODE
 	DUMP(STACK);
 	
 	FILE* logs = fopen("logs.txt", "a");
-	if (!logs) fprintf(stderr, "AAAAAAAAAAAAAAAA");
+	if (!logs) {
+		fprintf(stderr, "Cannot open LOG file");
+		abort();
+	}
 	
 	push_info(LOG_CAPTION, stdout, logs, 0);
 	fprintf(logs, "LOG: im in function %s\t%llu: %s\n", fxname, line, fname);
@@ -120,38 +131,55 @@ static errno_t _check_if_OK_(const char* fname, size_t line, const char* fxname,
 	
 	if (STACK -> size > STACK -> capacity) {
 		push_info("size > capacity\n", logs, stdout, 0);
-		return 1;
+		return SIZE_TOO_BIG;
 	}
-	if (STACK -> stack == NULL) {
+	if (STACK -> size < 0) {
+		push_info("size < 0\n", logs, stdout, 0);
+		return SIZE_LESS_0;
+	}
+	if (STACK -> capacity < 0) {
+		push_info("capasity < 0\n", logs, stdout, 0);
+		return CAPASITY_LESS_0;
+	}
+	
+	if (is_heap_pointer(STACK)) {
 		push_info("Yo, stack has NULL pointer\n", logs, stdout, 0);
-		return 1;
+		return STACK_NULL;
 	}
 	
 	#ifdef KANARY_MODE
-	if (STACK -> hardware_stack == NULL) {
+	if (is_heap_pointer(STACK)) {
 		push_info("hardware stack has NULL pointer\n", logs, stdout, 0);
-		return 1;
+		return HARDWARE_NULL;
 	}
 	#endif
 	
 	if (STACK -> alive != true) {
 		push_info("stack is not alive\n", logs, stdout, 0);
-		return 1;
+		return STACK_DEAD;
 	}
 	
 	#ifdef KANARY_MODE
-	if (((double*)(STACK -> hardware_stack))[0] != KANARY || 
-		*(double*)((char*)(STACK -> stack) + STACK -> capacity * sizeof(StackValue)) != KANARY) {
-		push_info("Kanaries died(((\n", logs, stdout, 0);
-		return 1;
+	if (((double*)(STACK -> hardware_stack))[0] != KANARY) {
+		push_info("Kanari left died\n", logs, stdout, 0);
+		return KANARI_LEFT_DIED;
+	}
+	if (*(double*)((char*)(STACK -> stack) + STACK -> capacity * sizeof(StackValue)) != KANARY) {
+		push_info("Kanari right died\n", logs, stdout, 0);
+		return KANARI_RIGHT_DIED;
 	}
 	#endif
 	
 	#ifdef HASH_MODE
+//	printf("hash: %llu\n", STACK -> hash);
 	size_t current_hash = hash_djb2(STACK -> stack, STACK -> size);
+//	printf("curr: %llu\n", current_hash);
+	
+	
+	
 	if (current_hash != STACK -> hash) {
 		push_info("Hash mismatch! Whoose inside???\n", logs, stdout, 0);
-		return 1;
+		return HASH_ERROR;
 	}
 	#endif
 	
@@ -160,17 +188,13 @@ static errno_t _check_if_OK_(const char* fname, size_t line, const char* fxname,
 	}
 	#endif
 	
-	return 0;
+	return OK;
 }
 
 static errno_t _destroy_(StackConstructor* STACK) {
 	assert(STACK != NULL);
 	
-	char reason[LOGGER] = {};
-	errno_t check = _check_if_OK_(__FILE__, __LINE__, __func__, STACK, reason);
-	if (check != 0) return check;
-	
-	assert(STACK != NULL);
+	CHECK(STACK);
 	errno = 0;
 	
 	#ifdef KANARY_MODE
@@ -190,22 +214,23 @@ static errno_t _destroy_(StackConstructor* STACK) {
 	#endif
 	
 	if (errno != 0) {
-		return errno;
+		return _check_if_OK_(__FILE__, __LINE__, __func__, STACK, "NO MEMORY");
 	}
 	
 	return 0;
 }
 
-void _stack_display(StackConstructor* STACK) {
+errno_t _stack_display(StackConstructor* STACK) {
 	assert(STACK != NULL);
 	
-	char reason[LOGGER] = {};
-	if (_check_if_OK_(__FILE__, __LINE__, __func__, STACK, reason) != 0) return;
+	CHECK(STACK);
 	
 	for (lli i = 0; i < STACK -> size; i++) {
 		printf("< %d >\t", STACK -> stack[i]);
 	}
 	putchar('\n');
+	
+	return 0;
 }
 
 bool _el_in_stack(StackConstructor* STACK, StackValue el) {
@@ -239,14 +264,15 @@ bool _stacks_equal(StackConstructor* STACK1, StackConstructor* STACK2) {
 static errno_t _fill_(StackConstructor* STACK, lli leng, StackValue startValue) {
 	assert(STACK != NULL);
 	
-	char reason[LOGGER] = {};
-	errno_t check = _check_if_OK_(__FILE__, __LINE__, __func__, STACK, reason);
-	if (check != 0) return check;
+	CHECK(STACK)
 	
 	if (leng > STACK -> capacity) {
 		STACK -> capacity = closest_2_power(leng);
 		errno_t err = xrealloc(STACK, STACK -> capacity);
-		if (err != 0) return err;
+		if (err != 0) {
+			_check_if_OK_(__FILE__, __LINE__, __func__, STACK, "MEMORY");
+			return err;
+		}
 	}
 	
 	for (size_t i = 0; i < (size_t)leng; i++) {
@@ -259,20 +285,23 @@ static errno_t _fill_(StackConstructor* STACK, lli leng, StackValue startValue) 
 	STACK -> hash = hash_djb2(STACK -> stack, STACK -> size);
 	#endif
 	
+	CHECK(STACK)
+	
 	return 0;
 }
 
 static errno_t _push_(StackConstructor* STACK, StackValue element) {
 	assert(STACK != NULL);
 	
-	char reason[LOGGER] = {};
-	errno_t check = _check_if_OK_(__FILE__, __LINE__, __func__, STACK, reason);
-	if (check != 0) return check;
+	CHECK(STACK)
 	
 	if (STACK -> size + 1 > STACK -> capacity) {
 		STACK -> capacity = closest_2_power(STACK -> size + 1);
 		errno_t err = xrealloc(STACK, STACK -> capacity);
-		if (err != 0) return err;
+		if (err != 0) { 
+			_check_if_OK_(__FILE__, __LINE__, __func__, STACK, "MEMORY");
+			return err;
+		}
 	}
 	STACK -> stack[(STACK -> size)++] = element;
 	
@@ -280,15 +309,15 @@ static errno_t _push_(StackConstructor* STACK, StackValue element) {
 	STACK -> hash = hash_djb2(STACK -> stack, STACK -> size);
 	#endif
 	
+	CHECK(STACK)
+	
 	return 0;
 }
 
 static errno_t _pop_(StackConstructor* STACK, lli index) {
 	assert(STACK != NULL);
 	
-	char reason[LOGGER] = {};
-	errno_t check = _check_if_OK_(__FILE__, __LINE__, __func__, STACK, reason);
-	if (check != 0) return check;
+	CHECK(STACK)
 	
 	if (STACK -> size <= 0) return EINVAL;
 	
@@ -296,22 +325,24 @@ static errno_t _pop_(StackConstructor* STACK, lli index) {
 	
 	if (STACK -> size < STACK -> capacity / 4) {
 		errno_t err = xrealloc(STACK, STACK -> capacity / 2);
-		if (err != 0) return err;
+		if (err != 0) {
+			_check_if_OK_(__FILE__, __LINE__, __func__, STACK, "MEMORY");
+			return err;
+		}
 	}
 	
 	#ifdef HASH_MODE
 	STACK -> hash = hash_djb2(STACK -> stack, STACK -> size);
 	#endif
 	
+	CHECK(STACK)
 	return 0;
 }
 
 static errno_t _extend_(StackConstructor* STACK, size_t argc, ...) {
 	assert(STACK != NULL); assert(argc >= 0);
 	
-	char reason[LOGGER] = {};
-	errno_t check = _check_if_OK_(__FILE__, __LINE__, __func__, STACK, reason);
-	if (check != 0) return check;
+	CHECK(STACK)
 	
 	va_list argv;
 	va_start(argv, argc);
@@ -321,6 +352,7 @@ static errno_t _extend_(StackConstructor* STACK, size_t argc, ...) {
 		errno_t err = xrealloc(STACK, STACK -> capacity);
 		if (err != 0) {
 			va_end(argv);
+			_check_if_OK_(__FILE__, __LINE__, __func__, STACK, "MEMORY");
 			return err;
 		}
 	}
@@ -334,6 +366,8 @@ static errno_t _extend_(StackConstructor* STACK, size_t argc, ...) {
 	#ifdef HASH_MODE
 	STACK -> hash = hash_djb2(STACK -> stack, STACK -> size);
 	#endif
+	
+	CHECK(STACK)
 	
 	va_end(argv);
 	return 0;
@@ -366,7 +400,10 @@ static errno_t _merge_(StackConstructor* New_Stack, StackConstructor* STACK_1, S
 	#endif
 	
 	errno_t err = xrealloc(New_Stack, New_Stack -> capacity);
-	if (err != 0) return err;
+	if (err != 0) {
+		_check_if_OK_(__FILE__, __LINE__, __func__, New_Stack, "MEMORY");
+		return err;
+	}
 	
 	for (size_t i = 0; i < (size_t)(STACK_1 -> size + STACK_2 -> size); i++) {
 		if (i < (size_t)STACK_1 -> size) {
@@ -381,6 +418,9 @@ static errno_t _merge_(StackConstructor* New_Stack, StackConstructor* STACK_1, S
 	#ifdef HASH_MODE
 	New_Stack -> hash = hash_djb2(New_Stack -> stack, New_Stack -> size);
 	#endif
+	
+	CHECK(STACK_1)
+	CHECK(STACK_2)
 	
 	return 0;
 }
@@ -416,6 +456,7 @@ errno_t _init_(size_t argc, StackConstructor* STACK, ...) {
 	errno_t err = xrealloc(STACK, STACK -> capacity);
 	if (err != 0) {
 		va_end(argv);
+		_check_if_OK_(__FILE__, __LINE__, __func__, STACK, "MEMORY");
 		return err;
 	}
 	
@@ -433,6 +474,9 @@ errno_t _init_(size_t argc, StackConstructor* STACK, ...) {
 	#endif
 	
 	va_end(argv);
+	
+	CHECK(STACK)
+	
 	return 0;
 }
 
@@ -463,7 +507,6 @@ static errno_t xrealloc(StackConstructor* STACK, size_t new_capacity) {
 	STACK -> stack = new_hardware_stack;
 	#endif
 	STACK -> capacity = (lli)new_capacity;
-	
 	return 0;
 }
 
@@ -471,7 +514,7 @@ static bool is_heap_pointer(StackConstructor* STACK) {
 	#ifdef KANARY_MODE
 	void* ptr = STACK -> hardware_stack;
 	#else
-	void* ptr = STACK -> stack
+	void* ptr = STACK -> stack;
 	#endif
 	
 	if (ptr == NULL) return false;

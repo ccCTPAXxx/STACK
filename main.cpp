@@ -1,46 +1,30 @@
-
 #include "stack_constructor.h"
 #include "stdio.h"
+#include "string.h"
+
+typedef int (*comporator_t)(const void*, const void*);
+void swap(void* a, void* b, size_t el_size, char* buffer);
+void buble_sort(void* arr, size_t n, size_t el_size, comporator_t comporator);
+int compare_up_s(const void* a, const void* b);
+
 
 int main() {
 	
 	StackConstructor a, b, c;
-	_init_stack(&a, 1, 4, 2, -3, 3);
-	_init_stack(&b, 3, 3, 2, -33, 9);
-	_init_stack(&c);
+	_init_stack(&c, 1, 4, 2, -3, 3);
+	_init_stack(&b);
+	_init_stack(&a, 9, 8, 9);
 	
+	b.merge(&b, &a, &c);
 	
-//	
-//	a.push(&a, 1);
-//	a.display(&a);
-//	a.push(&a, 6);
-//	a.push(&a, 6);
-//	a.pop(&a, -1);
-//	a.push(&a, 7);
-//	for (int i = 0; i < 100; i++) {
-//		a.push(&a, i);
-//		if (i % 2) a.pop(&a, 0);
-//		
-//		//a.display(&a);	
-//	}
-	_stack_display(&a);
+	b.pop(&b, 0);
+	b.push(&b, 5);
 	
-	printf("\n size: %lli \n", a.capacity);
+	_stack_display(&b);
 	
-	a.extend(&a, 5, 3, -2, 3, 4, 7);
-	
-	_stack_display(&a);
-	
-	c.merge(&c, &a, &b);
-
-	
-	_stack_display(&c);
-	
-	a.stack = NULL;
-	a.fill(&a, 10, 0);
-	_stack_display(&a);
-	printf("\n size: %lli \n", a.capacity);
+	a.destroy(&a); b.destroy(&b); c.destroy(&c);
 	
 	
 	return 0;
 }
+

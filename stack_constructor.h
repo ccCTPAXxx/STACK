@@ -1,9 +1,9 @@
 #ifndef STACK_CONSTRUCTOR_H
 #define STACK_CONSTRUCTOR_H
 
-#define HASH_MODE // -D
-#define DEBUG_MODE
-#define KANARY_MODE
+//#define HASH_MODE // -D
+//#define DEBUG_MODE
+//#define KANARY_MODE
 
 
 #include "stack_constructor.h"
@@ -15,6 +15,19 @@
 
 typedef int StackValue;
 typedef long long int lli;
+
+enum ERRORS {
+	OK,
+	SIZE_TOO_BIG,
+	SIZE_LESS_0,
+	CAPASITY_LESS_0,
+	STACK_NULL,
+	HARDWARE_NULL,
+	STACK_DEAD,
+	KANARI_LEFT_DIED,
+	KANARI_RIGHT_DIED,
+	HASH_ERROR
+};
 
 struct StackConstructor {
 	errno_t (*init) (size_t argc, StackConstructor* STACK, ...);
@@ -43,7 +56,7 @@ struct StackConstructor {
 	#endif
 };
 
-void _stack_display (StackConstructor* Stack);
+errno_t _stack_display (StackConstructor* Stack);
 bool _el_in_stack(StackConstructor* Stack, StackValue el);
 bool _stacks_equal(StackConstructor* STACK1, StackConstructor* STACK2);
 bool _is_stack_empty(StackConstructor* STACK);
