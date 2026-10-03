@@ -1,12 +1,5 @@
 #include "stack_constructor.h"
 #include "stdio.h"
-#include "string.h"
-
-typedef int (*comporator_t)(const void*, const void*);
-void swap(void* a, void* b, size_t el_size, char* buffer);
-void buble_sort(void* arr, size_t n, size_t el_size, comporator_t comporator);
-int compare_up_s(const void* a, const void* b);
-
 
 int main() {
 	
