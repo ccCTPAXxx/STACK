@@ -1,0 +1,39 @@
+[
+    {
+        "caretX": 1,
+        "caretY": 1,
+        "filename": "D:/Ivan/Programing/RedPanda/Stack_MIPT/stack_constructor.h",
+        "focused": false,
+        "isOpen": false,
+        "left": 0,
+        "top": 0
+    },
+    {
+        "caretX": 5,
+        "caretY": 6,
+        "filename": "D:/Ivan/Programing/RedPanda/Stack_MIPT/macroces.cpp",
+        "focused": false,
+        "isOpen": false,
+        "left": 0,
+        "top": 0
+    },
+    {
+        "caretX": 1,
+        "caretY": 19,
+        "filename": "D:/Ivan/Programing/RedPanda/Stack_MIPT/stack_constructor.cpp",
+        "focused": true,
+        "isOpen": true,
+        "left": 0,
+        "order": 0,
+        "top": 1215
+    },
+    {
+        "caretX": 2,
+        "caretY": 9,
+        "filename": "D:/Ivan/Programing/RedPanda/Stack_MIPT/main.cpp",
+        "focused": false,
+        "isOpen": false,
+        "left": 0,
+        "top": 567
+    }
+]
