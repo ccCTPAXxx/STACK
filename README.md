@@ -57,32 +57,37 @@ g++ main.cpp stack_constructor.cpp -o a.exe -DDEBUG_MODE -DKANARY_MODE -DHASH_MO
 
 `lli` - long long int
 
-`stack` - `StackValue*` Указатель на массив элементов
-`hardware_stack` - `void*` Указатель на массив с канарейками (`KANARY_MODE`)
-`size` - `lli` - Текущее количество элементов
-`capacity` - `lli` - Вместимость
-`alive` - `bool` - Можно ли обращаться к стеку (НЕ УБИВАЕТ СТЕК ОТЛАДОЧНАЯ ИНФОРМАЦИЯ)
-`hash` - `size_t` - Хеш содержимого (`HASH_MODE`)
-`name`, `created_by` - `char*` - Отладочная информация (`DEBUG_MODE`)
+### Структура `StackConstructor`
+
+| Поле | Тип | Описание |
+|---|---|---|
+| `stack` | `StackValue*` | Указатель на массив элементов |
+| `hardware_stack` | `void*` | Указатель на массив с канарейками (`KANARY_MODE`) |
+| `size` | `lli` | Текущее количество элементов |
+| `capacity` | `lli` | Вместимость |
+| `alive` | `bool` | Можно ли обращаться к стеку (НЕ УБИВАЕТ СТЕК, отладочная информация) |
+| `hash` | `size_t` | Хеш содержимого (`HASH_MODE`) |
+| `name`, `created_by` | `char*` | Отладочная информация (`DEBUG_MODE`) |
 
 ### Методы
 
-`push` - `errno_t push(StackConstructor*, StackValue)` - Добавить элемент
-`pop` | `errno_t pop(StackConstructor*, lli)` - Получить последний элемент
-`extend` | `errno_t extend(StackConstructor*, size_t argc, ...)` - Добавить сразу несколько элементов
-`fill` | `errno_t fill(StackConstructor*, lli leng, StackValue, val)` - Заполнить стек `leng` значениями `val` 
-`merge` | `errno_t merge(StackConstructor*, StackConstructor*, StackConstructor*)`- Склеить два стека в третий
-`destroy` | `errno_t destroy(StackConstructor*)` - Уничтожает стек
+| Метод | Сигнатура | Описание |
+|---|---|---|
+| `push` | `errno_t push(StackConstructor*, StackValue)` | Добавить элемент |
+| `pop` | `errno_t pop(StackConstructor*, lli)` | Получить последний элемент |
+| `extend` | `errno_t extend(StackConstructor*, size_t argc, ...)` | Добавить сразу несколько элементов |
+| `fill` | `errno_t fill(StackConstructor*, lli leng, StackValue val)` | Заполнить стек `leng` значениями `val` |
+| `merge` | `errno_t merge(StackConstructor*, StackConstructor*, StackConstructor*)` | Склеить два стека в третий |
+| `destroy` | `errno_t destroy(StackConstructor*)` | Уничтожает стек |
 
 ### Функции
 
 | Функция | Описание |
 |---|---|
-| `_init_(size_t argc, StackConstructor* st, ...)` | Конструктор. `argc` включает сам `argc` |
+| `#define _init_stack(StackConstructor*, ...)` | Надо передать какой стек инитить, а потом его первоначальные элементы (не больше 9)|
 | `_stack_display(StackConstructor*)` | Напечатать все элементы в `stdout` |
-| `_el_in_stack(StackConstructor*, StackValue)` | Линейный поиск элемента |
-| `_stacks_equal(StackConstructor*, StackConstructor*)` | Поэлементное сравнение |
-| `hash_djb2(const StackValue*, size_t)` | Хеш `djb2` (работает только в `HASH_MODE`) |
+| `_el_in_stack(StackConstructor*, StackValue)` | Проверяем, в стеке ли элемент |
+| `_stacks_equal(StackConstructor*, StackConstructor*)` | возвращает `true` если стеки полностью равны |
 
 ### Дампы (`DEBUG_MODE`)
 
